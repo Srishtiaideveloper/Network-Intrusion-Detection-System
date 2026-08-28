@@ -1,4 +1,9 @@
-# NIDS Main Application
+"""
+Network Intrusion Detection System (NIDS) - Enterprise SOC Command Center
+High-Performance Cybersecurity Platform with Real-Time Sniffing, PCAP Forensics,
+Explainable AI (SHAP), MITRE ATT&CK Mapping, and Automated Active Defense Firewall Synthesis.
+"""
+
 import sys
 import os
 import time
@@ -20,6 +25,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+from streamlit_option_menu import option_menu
+
 from src.data_loader import NIDSDataProcessor, FEATURE_NAMES, NUMERIC_FEATURES, CATEGORICAL_FEATURES, ATTACK_CATEGORIES
 from src.models import NIDSMultiClassifier, NIDSAnomalyDetector, NIDSExplainer
 from src.incident_response import IncidentResponseEngine, MITRE_ATTACK_MAPPING
@@ -31,7 +38,8 @@ from src.ui_components import (
     render_attack_pie,
     render_confusion_matrix,
     render_feature_importance_plot,
-    render_packet_velocity_chart
+    render_packet_velocity_chart,
+    render_roc_curves
 )
 
 st.markdown(CYBER_THEME_CSS, unsafe_allow_html=True)
@@ -78,29 +86,89 @@ if "velocity_history" not in st.session_state:
 
 pcap_analyzer = PCAPAnalyzer(processor, classifier, anomaly_detector)
 
+# TOP SOC BANNER
+st.markdown("""
+<div class="soc-header">
+    <div style="display: flex; align-items: center; gap: 16px;">
+        <div style="background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; border-radius: 10px; padding: 10px 14px; font-size: 24px;">
+            🛡️
+        </div>
+        <div>
+            <h2 style="margin: 0; color: #f8fafc; font-size: 22px; font-weight: 800; letter-spacing: -0.5px;">
+                NIDS ENTERPRISE SOC COMMAND CENTER
+            </h2>
+            <div style="color: #94a3b8; font-size: 13px; margin-top: 2px;">
+                AI-Driven Cyber Threat Intelligence & Active Defense Platform • Real NSL-KDD Benchmark
+            </div>
+        </div>
+    </div>
+    <div style="display: flex; gap: 20px; text-align: right;">
+        <div>
+            <div style="font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">DEFENSE STATUS</div>
+            <div style="color: #10b981; font-weight: 800; font-family: 'JetBrains Mono'; font-size: 14px;">● OPERATIONAL</div>
+        </div>
+        <div>
+            <div style="font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">AI ENGINE</div>
+            <div style="color: #38bdf8; font-weight: 800; font-family: 'JetBrains Mono'; font-size: 14px;">HYBRID ML + XAI</div>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# SIDEBAR NAVIGATION
 with st.sidebar:
     st.markdown("""
-    <div style="text-align: center; padding: 10px 0 20px 0;">
-        <h2 style="color: #38bdf8; margin: 0; font-family: 'JetBrains Mono'; font-size: 22px;">🛡️ NIDS SOC CORE</h2>
-        <span style="color: #94a3b8; font-size: 12px; letter-spacing: 1px;">AI CYBER DEFENSE SYSTEM</span>
+    <div style="text-align: center; padding: 5px 0 15px 0;">
+        <span style="background: linear-gradient(90deg, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-family: 'JetBrains Mono'; font-size: 18px; font-weight: 800;">
+            DEFENSE CORE v2.5
+        </span>
     </div>
     """, unsafe_allow_html=True)
     
-    nav_selection = st.radio(
-        "COMMAND NAVIGATION",
-        [
-            "🛡️ SOC Command Center",
-            "📂 PCAP & CSV Forensics",
-            "🧪 Threat Crafter & Simulator",
-            "🧠 AI Model Studio & XAI",
-            "🚨 Active Defense & Firewall",
-            "📄 Incident Audit Report"
+    nav_selection = option_menu(
+        menu_title=None,
+        options=[
+            "SOC Command Center",
+            "PCAP & CSV Forensics",
+            "Threat Crafter & Simulator",
+            "AI Model Studio & XAI",
+            "Active Defense & Firewall",
+            "Incident Audit Report"
         ],
-        index=0
+        icons=[
+            "shield-shaded",
+            "folder2-open",
+            "cpu",
+            "graph-up-arrow",
+            "fire",
+            "file-earmark-text"
+        ],
+        menu_icon="cast",
+        default_index=0,
+        styles={
+            "container": {"padding": "0!important", "background-color": "transparent"},
+            "icon": {"color": "#38bdf8", "font-size": "15px"},
+            "nav-link": {
+                "font-size": "13px",
+                "text-align": "left",
+                "margin": "4px 0",
+                "color": "#cbd5e1",
+                "font-family": "Plus Jakarta Sans",
+                "font-weight": "500",
+                "border-radius": "8px",
+                "padding": "10px 14px"
+            },
+            "nav-link-selected": {
+                "background": "linear-gradient(90deg, rgba(56, 189, 248, 0.25) 0%, rgba(30, 41, 59, 0.6) 100%)",
+                "color": "#38bdf8",
+                "font-weight": "700",
+                "border-left": "3px solid #38bdf8"
+            }
+        }
     )
     
     st.markdown("---")
-    st.markdown("### ⚡ Live Telemetry Status")
+    st.markdown("### ⚡ Live Stream Monitor")
     
     is_live = st.session_state.sniffer.is_running or st.session_state.replayer.is_running
     if is_live:
@@ -108,8 +176,8 @@ with st.sidebar:
         <div class="radar-container">
             <div class="pulsing-dot-red"></div>
             <div>
-                <strong style="color: #ef4444; font-size: 13px;">LIVE INGESTION ACTIVE</strong><br/>
-                <span style="color: #94a3b8; font-size: 11px;">Capturing & Scoring Packet Stream</span>
+                <strong style="color: #f43f5e; font-size: 13px;">INGESTION ACTIVE</strong><br/>
+                <span style="color: #94a3b8; font-size: 11px;">Inspecting Live Traffic Stream</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -118,29 +186,34 @@ with st.sidebar:
         <div class="radar-container">
             <div class="pulsing-dot"></div>
             <div>
-                <strong style="color: #22c55e; font-size: 13px;">SYSTEM STANDBY</strong><br/>
+                <strong style="color: #10b981; font-size: 13px;">STANDBY MODE</strong><br/>
                 <span style="color: #94a3b8; font-size: 11px;">Ready for Ingestion / Replay</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
         
     st.metric("Total Flows Analyzed", f"{len(st.session_state.live_stream_records):,}")
-    st.metric("Threats Blocked", f"{len(st.session_state.incident_engine.incidents):,}")
+    st.metric("Intrusions Intercepted", f"{len(st.session_state.incident_engine.incidents):,}")
     st.metric("Blocked Threat Actors", f"{len(st.session_state.incident_engine.blocked_ips):,}")
     
     st.markdown("---")
-    st.markdown("<small style='color: #64748b;'>B.Tech Major Project • Real NSL-KDD Data<br/>Multi-Class ML • XAI SHAP • Active Defense</small>", unsafe_allow_html=True)
+    st.markdown("<div style='color: #64748b; font-size: 11px; text-align: center;'>B.Tech Capstone Project<br/>Machine Learning in Cybersecurity</div>", unsafe_allow_html=True)
 
 # TAB 1: SOC COMMAND CENTER
-if nav_selection == "🛡️ SOC Command Center":
-    st.title("🛡️ SOC Command Center & Real-Time Telemetry")
-    st.markdown("Real-time network traffic ingestion, multi-engine attack classification, and automated threat mitigation.")
+if nav_selection == "SOC Command Center":
+    c_head1, c_head2 = st.columns([3, 1])
+    with c_head1:
+        st.subheader("🛡️ Real-Time SOC Command & Telemetry Stream")
+        st.markdown("Live packet stream ingestion, multi-class cyber attack classification, and automated active defense.")
+    with c_head2:
+        st.markdown(f"<div style='text-align:right; font-family:JetBrains Mono; color:#38bdf8; padding-top:10px;'>UTC: {time.strftime('%H:%M:%S')}</div>", unsafe_allow_html=True)
     
+    # Ingestion Control Actions
     c_btn1, c_btn2, c_btn3, c_btn4 = st.columns(4)
     with c_btn1:
         if not st.session_state.replayer.is_running:
             if st.button("🚀 Start Live Threat Replay", use_container_width=True):
-                st.session_state.replayer.start_replay(delay=0.7)
+                st.session_state.replayer.start_replay(delay=0.6)
                 st.rerun()
         else:
             if st.button("⏹️ Stop Threat Replay", use_container_width=True):
@@ -158,17 +231,18 @@ if nav_selection == "🛡️ SOC Command Center":
                 st.rerun()
                 
     with c_btn3:
-        if st.button("🔄 Pull Live Stream", use_container_width=True):
+        if st.button("🔄 Pull Stream Update", use_container_width=True):
             st.rerun()
             
     with c_btn4:
-        if st.button("🗑️ Reset Telemetry Feed", use_container_width=True):
+        if st.button("🗑️ Clear Telemetry Feed", use_container_width=True):
             st.session_state.live_stream_records = []
             st.session_state.incident_engine.incidents = []
             st.session_state.incident_engine.blocked_ips = set()
             st.rerun()
 
-    raw_batch = st.session_state.sniffer.get_batch(max_items=30)
+    # Process Packets in Queue
+    raw_batch = st.session_state.sniffer.get_batch(max_items=35)
     if raw_batch:
         df_batch = pd.DataFrame(raw_batch)
         classified_df = pcap_analyzer._predict_dataframe(df_batch)
@@ -191,9 +265,10 @@ if nav_selection == "🛡️ SOC Command Center":
             
         now_str = time.strftime("%H:%M:%S")
         st.session_state.velocity_history.append({"timestamp": now_str, "packet_rate": len(raw_batch)})
-        if len(st.session_state.velocity_history) > 20:
+        if len(st.session_state.velocity_history) > 25:
             st.session_state.velocity_history.pop(0)
 
+    # Top KPI Metrics HUD
     kpi1, kpi2, kpi3, kpi4 = st.columns(4)
     total_analyzed = len(st.session_state.live_stream_records)
     total_threats = len(st.session_state.incident_engine.incidents)
@@ -202,36 +277,37 @@ if nav_selection == "🛡️ SOC Command Center":
     with kpi1:
         st.markdown(f"""
         <div class="soc-card">
-            <div class="card-title">Total Packets Ingested</div>
+            <div class="card-title"><span>📡</span> Total Packets Ingested</div>
             <div class="card-value">{total_analyzed:,}</div>
-            <div class="card-subtext">Real-time bi-directional flow records</div>
+            <div class="card-subtext">Real-time bi-directional flow sessions</div>
         </div>
         """, unsafe_allow_html=True)
     with kpi2:
         st.markdown(f"""
         <div class="soc-card">
-            <div class="card-title">Intrusions Intercepted</div>
-            <div class="card-value" style="color: #ef4444;">{total_threats:,}</div>
+            <div class="card-title"><span>🚨</span> Intrusions Intercepted</div>
+            <div class="card-value" style="color: #f43f5e;">{total_threats:,}</div>
             <div class="card-subtext">Active threats mitigated by firewall</div>
         </div>
         """, unsafe_allow_html=True)
     with kpi3:
         st.markdown(f"""
         <div class="soc-card">
-            <div class="card-title">Attack Volume Ratio</div>
-            <div class="card-value" style="color: {'#ef4444' if threat_rate > 30 else '#38bdf8'};">{threat_rate:.1f}%</div>
+            <div class="card-title"><span>📊</span> Attack Ratio</div>
+            <div class="card-value" style="color: {'#f43f5e' if threat_rate > 30 else '#38bdf8'};">{threat_rate:.1f}%</div>
             <div class="card-subtext">Malicious vs Normal traffic ratio</div>
         </div>
         """, unsafe_allow_html=True)
     with kpi4:
         st.markdown(f"""
         <div class="soc-card">
-            <div class="card-title">Active Defense Status</div>
-            <div class="card-value" style="color: #22c55e;">ARMED</div>
-            <div class="card-subtext">Windows / Linux auto-rules synthesized</div>
+            <div class="card-title"><span>🛡️</span> Active Defense</div>
+            <div class="card-value" style="color: #10b981;">ARMED</div>
+            <div class="card-subtext">Automated netsh / iptables mitigation</div>
         </div>
         """, unsafe_allow_html=True)
 
+    # Visual Threat Gauges & Donut Charts
     col_g1, col_g2 = st.columns([1, 1])
     with col_g1:
         st.plotly_chart(render_threat_gauge(min(100.0, threat_rate * 1.5)), use_container_width=True)
@@ -243,48 +319,53 @@ if nav_selection == "🛡️ SOC Command Center":
         else:
             st.plotly_chart(render_attack_pie({"Normal": 1}), use_container_width=True)
 
+    # Velocity Sparkline
+    if st.session_state.velocity_history:
+        st.plotly_chart(render_packet_velocity_chart(st.session_state.velocity_history), use_container_width=True)
+
+    # Live Feed Stream Table
     st.markdown("### 📡 Live Packet Stream & Real-Time Classification")
     if st.session_state.live_stream_records:
-        df_display = pd.DataFrame(st.session_state.live_stream_records[:35])
+        df_display = pd.DataFrame(st.session_state.live_stream_records[:40])
         display_cols = ["timestamp", "src_ip", "src_port", "dst_ip", "dst_port", "protocol_type", "service", "Threat_Class", "Confidence", "Anomaly_Score", "Zero_Day_Flag"]
         available_cols = [c for c in display_cols if c in df_display.columns]
         
         def highlight_threats(row):
             t = row.get("Threat_Class", "Normal")
             if t == "DoS":
-                return ["background-color: rgba(239, 68, 68, 0.2); color: #fca5a5;"] * len(row)
+                return ["background-color: rgba(244, 63, 94, 0.18); color: #fca5a5;"] * len(row)
             elif t == "Probe":
-                return ["background-color: rgba(245, 158, 11, 0.2); color: #fde047;"] * len(row)
+                return ["background-color: rgba(245, 158, 11, 0.18); color: #fde047;"] * len(row)
             elif t in ["R2L", "U2R"]:
-                return ["background-color: rgba(168, 85, 247, 0.2); color: #e9d5ff;"] * len(row)
+                return ["background-color: rgba(168, 85, 247, 0.18); color: #e9d5ff;"] * len(row)
             return ["color: #86efac;"] * len(row)
 
         st.dataframe(
             df_display[available_cols].style.apply(highlight_threats, axis=1),
             use_container_width=True,
-            height=350
+            height=360
         )
     else:
-        st.info("💡 Click 'Start Live Threat Replay' above or 'Start Live NIC Sniffer' to start streaming real-time network traffic!")
+        st.info("💡 Click **'Start Live Threat Replay'** above or **'Start Live NIC Sniffer'** to start streaming live network traffic!")
 
 # TAB 2: PCAP & CSV FORENSICS
-elif nav_selection == "📂 PCAP & CSV Forensics":
-    st.title("📂 Deep PCAP & CSV Network Forensics")
-    st.markdown("Upload raw `.pcap`, `.pcapng` network trace dumps or `.csv` network flow logs for deep packet inspection and batch forensics.")
+elif nav_selection == "PCAP & CSV Forensics":
+    st.subheader("📂 Deep PCAP & CSV Network Forensics")
+    st.markdown("Upload raw `.pcap`, `.pcapng` network trace files or `.csv` flow logs for deep packet inspection and batch forensics.")
     
     col_up1, col_up2 = st.columns([2, 1])
     with col_up1:
-        uploaded_file = st.file_uploader("Upload Network Capture or CSV Trace", type=["csv", "pcap", "pcapng"])
+        uploaded_file = st.file_uploader("Upload Network Trace Dump (PCAP / CSV)", type=["csv", "pcap", "pcapng"])
     with col_up2:
         st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
         load_sample_csv = st.button("🧪 Load Real NSL-KDD 100-Sample Test Set", use_container_width=True)
-        load_sample_pcap = st.button("📦 Load Sample Multi-Attack PCAP", use_container_width=True)
+        load_sample_pcap = st.button("📦 Load Sample Multi-Attack PCAP Trace", use_container_width=True)
 
     df_forensics = None
     
     if uploaded_file is not None:
         fname = uploaded_file.name.lower()
-        with st.spinner("Analyzing uploaded file with AI pipeline..."):
+        with st.spinner("Analyzing network packets with AI inspection engine..."):
             if fname.endswith(".csv"):
                 df_forensics = pcap_analyzer.analyze_csv_file(uploaded_file)
             elif fname.endswith((".pcap", ".pcapng")):
@@ -300,14 +381,14 @@ elif nav_selection == "📂 PCAP & CSV Forensics":
                     df_forensics = pcap_analyzer.analyze_pcap_file(fp.read())
 
     if df_forensics is not None and not df_forensics.empty:
-        st.success(f"✅ Forensics Analysis Complete: Successfully inspected {len(df_forensics):,} network flows!")
+        st.success(f"✅ Forensics Complete: Successfully inspected {len(df_forensics):,} network conversations!")
         
         fc1, fc2, fc3, fc4 = st.columns(4)
         n_attacks = (df_forensics["Threat_Class"] != "Normal").sum()
         fc1.metric("Flows Inspected", f"{len(df_forensics):,}")
-        fc2.metric("Intrusions Detected", f"{n_attacks:,}")
-        fc3.metric("Benign Flows", f"{(df_forensics['Threat_Class'] == 'Normal').sum():,}")
-        fc4.metric("Threat Detection Rate", f"{n_attacks/len(df_forensics)*100:.1f}%")
+        fc2.metric("Intrusions Intercepted", f"{n_attacks:,}")
+        fc3.metric("Benign Normal Flows", f"{(df_forensics['Threat_Class'] == 'Normal').sum():,}")
+        fc4.metric("Threat Ratio", f"{n_attacks/len(df_forensics)*100:.1f}%")
 
         col_fc_left, col_fc_right = st.columns([1, 1])
         with col_fc_left:
@@ -321,23 +402,23 @@ elif nav_selection == "📂 PCAP & CSV Forensics":
                     x=svc_counts.values,
                     y=svc_counts.index,
                     orientation="h",
-                    title="Targeted Network Services",
-                    color_discrete_sequence=["#ef4444"]
+                    title="Targeted Destination Services",
+                    color_discrete_sequence=["#f43f5e"]
                 )
                 fig_svc.update_layout(
                     paper_bgcolor="rgba(0,0,0,0)",
                     plot_bgcolor="rgba(0,0,0,0)",
-                    font=dict(color="#94a3b8"),
-                    margin=dict(t=35, b=25, l=90, r=20),
-                    height=280
+                    font=dict(color="#94a3b8", family="Plus Jakarta Sans"),
+                    margin=dict(t=35, b=25, l=100, r=20),
+                    height=270
                 )
                 st.plotly_chart(fig_svc, use_container_width=True)
 
-        st.markdown("### 🔍 Forensic Inspection Log")
-        filter_class = st.selectbox("Filter by Category", ["All"] + list(df_forensics["Threat_Class"].unique()))
+        st.markdown("### 🔍 Forensic Inspection Log & Threat Timeline")
+        filter_class = st.selectbox("Filter by Threat Category", ["All"] + list(df_forensics["Threat_Class"].unique()))
         df_filtered = df_forensics if filter_class == "All" else df_forensics[df_forensics["Threat_Class"] == filter_class]
         
-        st.dataframe(df_filtered, use_container_width=True, height=350)
+        st.dataframe(df_filtered, use_container_width=True, height=360)
         
         csv_bytes = df_forensics.to_csv(index=False).encode("utf-8")
         st.download_button(
@@ -347,54 +428,54 @@ elif nav_selection == "📂 PCAP & CSV Forensics":
             mime="text/csv"
         )
     else:
-        st.info("💡 Upload a `.pcap` or `.csv` file above, or click 'Load Real NSL-KDD 100-Sample Test Set' to test immediately.")
+        st.info("💡 Upload a `.pcap` or `.csv` file above, or click **'Load Real NSL-KDD 100-Sample Test Set'** to test immediately.")
 
 # TAB 3: THREAT CRAFTER & SIMULATOR
-elif nav_selection == "🧪 Threat Crafter & Simulator":
-    st.title("🧪 Interactive Packet Crafter & Attack Simulator")
-    st.markdown("Manually craft custom network packet headers or select preset cyber attack scenarios to test real-time detection & SHAP root-cause explainability.")
+elif nav_selection == "Threat Crafter & Simulator":
+    st.subheader("🧪 Interactive Packet Crafter & Attack Simulator")
+    st.markdown("Craft custom TCP/UDP/IP flow attributes or test real-world attack presets with instant Explainable AI (SHAP) root-cause attribution.")
     
     preset = st.selectbox(
-        "🎯 Select Cyber Attack Scenario Preset",
+        "🎯 Select Cyber Attack Preset Scenario",
         [
-            "Custom Customization",
-            "DoS: TCP SYN Flood Attack (T1498.001)",
-            "Probe: Nmap Stealth Port Scan (T1046)",
-            "R2L: FTP Password Guessing Brute Force (T1110)",
-            "U2R: Telnet Buffer Overflow Root Escalation (T1068)",
+            "Custom Packet Crafting",
+            "DoS: TCP SYN Flood Attack (MITRE T1498.001)",
+            "Probe: Nmap Stealth Port Scan (MITRE T1046)",
+            "R2L: FTP Password Guessing Brute Force (MITRE T1110)",
+            "U2R: Telnet Buffer Overflow Root Escalation (MITRE T1068)",
             "Normal: Benign HTTPS Web Browsing"
         ]
     )
 
     p_dur, p_proto, p_srv, p_flag, p_sbytes, p_dbytes, p_count, p_serror, p_failed_logins, p_root_shell = 0.0, 'tcp', 'http', 'SF', 250, 4500, 5, 0.0, 0, 0
     
-    if preset == "DoS: TCP SYN Flood Attack (T1498.001)":
-        p_proto, p_srv, p_flag, p_sbytes, p_dbytes, p_count, p_serror = 'tcp', 'http', 'S0', 0, 0, 320, 1.0
-    elif preset == "Probe: Nmap Stealth Port Scan (T1046)":
-        p_proto, p_srv, p_flag, p_sbytes, p_dbytes, p_count, p_serror = 'tcp', 'private', 'REJ', 40, 0, 150, 0.45
-    elif preset == "R2L: FTP Password Guessing Brute Force (T1110)":
-        p_proto, p_srv, p_flag, p_sbytes, p_dbytes, p_count, p_failed_logins = 'tcp', 'ftp', 'SF', 850, 420, 20, 3
-    elif preset == "U2R: Telnet Buffer Overflow Root Escalation (T1068)":
+    if preset == "DoS: TCP SYN Flood Attack (MITRE T1498.001)":
+        p_proto, p_srv, p_flag, p_sbytes, p_dbytes, p_count, p_serror = 'tcp', 'http', 'S0', 0, 0, 350, 1.0
+    elif preset == "Probe: Nmap Stealth Port Scan (MITRE T1046)":
+        p_proto, p_srv, p_flag, p_sbytes, p_dbytes, p_count, p_serror = 'tcp', 'private', 'REJ', 40, 0, 180, 0.5
+    elif preset == "R2L: FTP Password Guessing Brute Force (MITRE T1110)":
+        p_proto, p_srv, p_flag, p_sbytes, p_dbytes, p_count, p_failed_logins = 'tcp', 'ftp', 'SF', 850, 420, 25, 3
+    elif preset == "U2R: Telnet Buffer Overflow Root Escalation (MITRE T1068)":
         p_proto, p_srv, p_flag, p_sbytes, p_dbytes, p_count, p_root_shell = 'tcp', 'telnet', 'SF', 4200, 3100, 4, 1
     elif preset == "Normal: Benign HTTPS Web Browsing":
-        p_proto, p_srv, p_flag, p_sbytes, p_dbytes, p_count, p_serror = 'tcp', 'http', 'SF', 450, 12500, 10, 0.0
+        p_proto, p_srv, p_flag, p_sbytes, p_dbytes, p_count, p_serror = 'tcp', 'http', 'SF', 450, 14000, 12, 0.0
 
-    st.markdown("#### 🛠️ Packet Header & Flow Parameters")
+    st.markdown("#### 🛠️ Flow Attributes & Packet Parameters")
     c1, c2, c3 = st.columns(3)
     with c1:
         proto_val = st.selectbox("Protocol Type", ['tcp', 'udp', 'icmp'], index=['tcp', 'udp', 'icmp'].index(p_proto))
         srv_val = st.selectbox("Service Port", ['http', 'domain_u', 'ftp', 'smtp', 'telnet', 'private', 'other'], index=0 if p_srv not in ['http', 'domain_u', 'ftp', 'smtp', 'telnet', 'private', 'other'] else ['http', 'domain_u', 'ftp', 'smtp', 'telnet', 'private', 'other'].index(p_srv))
-        flag_val = st.selectbox("TCP Flag Status", ['SF', 'S0', 'REJ', 'RSTO', 'RSTR'], index=['SF', 'S0', 'REJ', 'RSTO', 'RSTR'].index(p_flag))
+        flag_val = st.selectbox("TCP Flags", ['SF', 'S0', 'REJ', 'RSTO', 'RSTR'], index=['SF', 'S0', 'REJ', 'RSTO', 'RSTR'].index(p_flag))
     with c2:
-        src_bytes_val = st.number_input("Source Bytes (Payload)", min_value=0, max_value=100000, value=p_sbytes, step=50)
+        src_bytes_val = st.number_input("Source Bytes (Payload Size)", min_value=0, max_value=100000, value=p_sbytes, step=50)
         dst_bytes_val = st.number_input("Destination Bytes", min_value=0, max_value=100000, value=p_dbytes, step=100)
-        duration_val = st.number_input("Flow Duration (sec)", min_value=0.0, max_value=60.0, value=p_dur, step=0.1)
+        duration_val = st.number_input("Session Duration (seconds)", min_value=0.0, max_value=60.0, value=p_dur, step=0.1)
     with c3:
-        count_val = st.slider("Connections in Window (count)", 1, 512, p_count)
+        count_val = st.slider("Connections in 2s Window (count)", 1, 512, p_count)
         serror_val = st.slider("SYN Error Rate (serror_rate)", 0.0, 1.0, float(p_serror), step=0.05)
-        failed_logins_val = st.number_input("Failed Logins", 0, 10, p_failed_logins)
+        failed_logins_val = st.number_input("Failed Login Attempts", 0, 10, p_failed_logins)
 
-    if st.button("🚀 Analyze & Classify Crafted Flow", use_container_width=True):
+    if st.button("🚀 Analyze & Score Crafted Flow", use_container_width=True):
         custom_flow = {
             'duration': duration_val, 'protocol_type': proto_val, 'service': srv_val, 'flag': flag_val,
             'src_bytes': src_bytes_val, 'dst_bytes': dst_bytes_val,
@@ -432,11 +513,11 @@ elif nav_selection == "🧪 Threat Crafter & Simulator":
         anomaly_score = float(anomaly_detector.score_samples(X_single)[0]) if anomaly_detector else 0.0
 
         st.markdown("---")
-        st.subheader("🎯 Real-Time Threat Classification Results")
+        st.subheader("🎯 Real-Time Threat Classification Output")
         
         res1, res2, res3 = st.columns(3)
         with res1:
-            color = "#22c55e" if pred_label == "Normal" else "#ef4444"
+            color = "#10b981" if pred_label == "Normal" else "#f43f5e"
             st.markdown(f"""
             <div class="soc-card" style="border-color: {color};">
                 <div class="card-title">Classified Category</div>
@@ -456,7 +537,7 @@ elif nav_selection == "🧪 Threat Crafter & Simulator":
             st.markdown(f"""
             <div class="soc-card">
                 <div class="card-title">Zero-Day Anomaly Score</div>
-                <div class="card-value" style="color: {'#ef4444' if anomaly_score > 0.65 else '#22c55e'};">{anomaly_score*100:.1f}%</div>
+                <div class="card-value" style="color: {'#f43f5e' if anomaly_score > 0.65 else '#10b981'};">{anomaly_score*100:.1f}%</div>
                 <div class="card-subtext">Isolation Forest Unsupervised Score</div>
             </div>
             """, unsafe_allow_html=True)
@@ -473,27 +554,27 @@ elif nav_selection == "🧪 Threat Crafter & Simulator":
                 orientation="h",
                 color="shap_value",
                 color_continuous_scale="RdBu_r",
-                title=f"SHAP Feature Attribution (Why Model Predicted {pred_label})"
+                title=f"SHAP Feature Attribution (Why Model Classified as {pred_label})"
             )
             fig_shap.update_layout(
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="#94a3b8"),
-                margin=dict(t=35, b=25, l=120, r=20),
+                font=dict(color="#94a3b8", family="JetBrains Mono"),
+                margin=dict(t=35, b=25, l=130, r=20),
                 height=300
             )
             st.plotly_chart(fig_shap, use_container_width=True)
             
         if pred_label != "Normal":
-            st.markdown("### 🛡️ Generated Active Defense Firewall Rule")
+            st.markdown("### 🛡️ Synthesized Active Defense Firewall Rule")
             mock_ip = "192.168.1.215"
             inc = st.session_state.incident_engine.assess_threat(pred_label, conf, mock_ip, "192.168.1.1", 80, anomaly_score)
             st.code(inc["rules"]["windows"], language="bat")
             st.code(inc["rules"]["linux"], language="bash")
 
 # TAB 4: AI MODEL STUDIO & XAI
-elif nav_selection == "🧠 AI Model Studio & XAI":
-    st.title("🧠 AI Model Studio, Benchmarks & Explainability")
+elif nav_selection == "AI Model Studio & XAI":
+    st.subheader("🧠 AI Model Studio, Benchmarks & Explainability")
     st.markdown("Comprehensive performance metrics, multi-model benchmark comparisons, and Explainable AI (SHAP) feature importance trained on the authentic NSL-KDD benchmark.")
 
     col_m1, col_m2, col_m3, col_m4 = st.columns(4)
@@ -528,10 +609,8 @@ elif nav_selection == "🧠 AI Model Studio & XAI":
         ])
         st.dataframe(benchmark_df, use_container_width=True, height=240)
         
-        st.markdown("""
-        > [!NOTE]
-        > **Academic Benchmark Insight**: NSL-KDD `KDDTest+` intentionally includes 17 novel zero-day attack subtypes that are entirely absent from the training set to evaluate zero-day generalizability. The hybrid combination of Random Forest + Isolation Forest yields maximum overall defense capability.
-        """)
+        # ROC Curves
+        st.plotly_chart(render_roc_curves(), use_container_width=True)
 
     st.markdown("### 🔍 Global Feature Importance (XAI Feature Weights)")
     df_imp = classifier.get_feature_importances(processor.feature_columns)
@@ -539,8 +618,8 @@ elif nav_selection == "🧠 AI Model Studio & XAI":
         st.plotly_chart(render_feature_importance_plot(df_imp, top_n=15), use_container_width=True)
 
 # TAB 5: ACTIVE DEFENSE & FIREWALL HUB
-elif nav_selection == "🚨 Active Defense & Firewall":
-    st.title("🚨 Active Defense & Automated Firewall Hub")
+elif nav_selection == "Active Defense & Firewall":
+    st.subheader("🚨 Active Defense & Automated Firewall Hub")
     st.markdown("Manage active threat blocklists, export synthesized firewall mitigation scripts for Windows Defender Firewall / Linux iptables, and inspect MITRE ATT&CK Matrix alignment.")
 
     col_fw1, col_fw2 = st.columns([1, 1])
@@ -577,7 +656,7 @@ elif nav_selection == "🚨 Active Defense & Firewall":
     m_cols = st.columns(4)
     
     tactics = [
-        ("DoS", "T1498", "Impact", "Network Denial of Service", "#ef4444", "Flooding network interfaces with volumetric SYN/UDP streams to exhaust system bandwidth."),
+        ("DoS", "T1498", "Impact", "Network Denial of Service", "#f43f5e", "Flooding network interfaces with volumetric SYN/UDP streams to exhaust system bandwidth."),
         ("Probe", "T1046", "Discovery", "Network Service Discovery", "#f59e0b", "Active scanning of IP ranges, open TCP/UDP ports, and daemon banners."),
         ("R2L", "T1110", "Initial Access", "Brute Force & Remote Exploits", "#a855f7", "Password spray, dictionary attacks on FTP/SSH, and unauthenticated public service exploits."),
         ("U2R", "T1068", "Privilege Escalation", "Exploitation for Privilege Escalation", "#ec4899", "Abusing memory corruption buffer overflows to gain root / administrator ring-0 privileges.")
@@ -595,8 +674,8 @@ elif nav_selection == "🚨 Active Defense & Firewall":
             """, unsafe_allow_html=True)
 
 # TAB 6: INCIDENT AUDIT REPORT
-elif nav_selection == "📄 Incident Audit Report":
-    st.title("📄 SOC Forensics & Executive Incident Audit Report")
+elif nav_selection == "Incident Audit Report":
+    st.subheader("📄 SOC Forensics & Executive Incident Audit Report")
     st.markdown("Generate and download formal security incident audit reports suitable for academic evaluation and enterprise SOC governance.")
 
     report_html = st.session_state.incident_engine.generate_html_report()
