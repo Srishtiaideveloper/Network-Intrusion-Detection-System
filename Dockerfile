@@ -19,8 +19,8 @@ COPY . .
 # Run training to build artifacts if not present
 RUN python train_models.py
 
-# Expose Streamlit port
+# Expose Streamlit default port
 EXPOSE 8501
 
-# Run the SOC Dashboard
-CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0", "--theme.base=dark"]
+# Run the SOC Dashboard with dynamic PORT support for Railway / Cloud hosts
+CMD streamlit run app.py --server.port=${PORT:-8501} --server.address=0.0.0.0 --theme.base=dark
